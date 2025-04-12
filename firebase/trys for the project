@@ -1,0 +1,50 @@
+try {
+  User? user = await AuthService.registerStudent(
+    email: 'student@example.com',
+    password: 'password123',
+    name: 'John Doe',
+    university: 'Harvard University',
+    major: 'Computer Science',
+    country: 'United States',
+  );
+  
+  if (user != null) {
+    // Registration successful
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
+  }
+} catch (e) {
+  // Show error to user
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(e.toString())),
+  );
+}
+try {
+  await PostService.createPost(
+    userId: FirebaseService.auth.currentUser!.uid,
+    username: 'John Doe',
+    content: 'This is a test post with #StudyFlow',
+  );
+} catch (e) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Failed to create post: ${e.toString()}')),
+  );
+}
+StreamBuilder<QuerySnapshot>(
+  stream: PostService.getPostsFeed(),
+  builder: (context, snapshot) {
+    if (snapshot.hasError) {
+      return Center(child: Text('Error loading posts'));
+    }
+    
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    return ListView(
+      children: snapshot.data!.docs.map((doc) {
+        Map<String, dynamic> post = doc.data() as Map<String, dynamic>;
+        return PostWidget(post: post);
+      }).toList(),
+    );
+  },
+)
