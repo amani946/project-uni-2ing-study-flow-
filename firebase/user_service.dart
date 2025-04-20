@@ -1,102 +1,114 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 
-class UserService {
-  // Get user profile
-  static Future<Map<String, dynamic>> getUserProfile(String userId) async {
-    try {
-      DocumentSnapshot userDoc = await FirebaseService.firestore
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      if (!userDoc.exists) {
-        throw Exception('User not found');
-      }
-
-      Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-      String userType = userData['userType'] ?? 'student';
-
-      // Get additional user data based on type
-      DocumentSnapshot additionalData = await FirebaseService.firestore
-          .collection('users')
-          .doc(userId)
-          .collection('${userType}_data')
-          .doc('profile')
-          .get();
-
-      if (additionalData.exists) {
-        userData.addAll(additionalData.data() as Map<String, dynamic>);
-      }
-
-      return userData;
-    } catch (e) {
-      throw Exception('Failed to get user profile: $e');
-    }
-  }
-
-  // Update user profile
-  static Future<void> updateUserProfile({
+class PostService {
+  // Create a new post
+  static Future<void> createPost({
     required String userId,
-    required Map<String, dynamic> updates,
+    required String username,
+    required String content,
   }) async {
     try {
-      await FirebaseService.firestore
-          .collection('users')
-          .doc(userId)
-          .update(updates);
+      // Extract hashtags from content
+      final hashtags = _extractHashtags(content);
+
+      await FirebaseService.firestore.collection('posts').add({
+        'userId': userId,
+        'username': username,
+        'content': content,
+        'likes': 0,
+        'comments': [],
+        'hashtags': hashtags,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
-      throw Exception('Failed to update profile: $e');
+      throw Exception('Failed to create post: $e');
     }
   }
 
-  // Update profile photo
-  static Future<String> updateProfilePhoto(
-      String userId, String filePath) async {
+  // Get posts feed
+  static Stream<QuerySnapshot> getPostsFeed() {
+    return FirebaseService.firestore
+        .collection('posts')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  // Get posts by hashtag
+  static Stream<QuerySnapshot> getPostsByHashtag(String hashtag) {
+    return FirebaseService.firestore
+        .collection('posts')
+        .where('hashtags', arrayContains: hashtag)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  // Like a post
+  static Future<void> likePost(String postId, String userId) async {
     try {
-      // Upload file to storage
-      final ref = FirebaseService.storage
-          .ref()
-          .child('profile_photos')
-          .child('$userId.jpg');
-      
-      await ref.putFile(filePath as File);
-      String photoUrl = await ref.getDownloadURL();
+      final postRef = FirebaseService.firestore.collection('posts').doc(postId);
 
-      // Update user document
-      await FirebaseService.firestore
-          .collection('users')
-          .doc(userId)
-          .update({'profilePhotoUrl': photoUrl});
+      await FirebaseService.firestore.runTransaction((transaction) async {
+        final postDoc = await transaction.get(postRef);
+        if (!postDoc.exists) {
+          throw Exception('Post not found');
+        }
 
-      return photoUrl;
+        final postData = postDoc.data() as Map<String, dynamic>;
+        final likes = postData['likes'] ?? 0;
+        final likedBy = postData['likedBy'] ?? [];
+
+        if (likedBy.contains(userId)) {
+          // User already liked, unlike it
+          transaction.update(postRef, {
+            'likes': likes - 1,
+            'likedBy': FieldValue.arrayRemove([userId]),
+          });
+        } else {
+          // Like the post
+          transaction.update(postRef, {
+            'likes': likes + 1,
+            'likedBy': FieldValue.arrayUnion([userId]),
+          });
+        }
+      });
     } catch (e) {
-      throw Exception('Failed to update profile photo: $e');
+      throw Exception('Failed to like post: $e');
     }
   }
 
-  // Search users
-  static Future<List<Map<String, dynamic>>> searchUsers(String query) async {
+  // Add comment to post
+  static Future<void> addComment({
+    required String postId,
+    required String userId,
+    required String username,
+    required String text,
+  }) async {
     try {
-      QuerySnapshot snapshot = await FirebaseService.firestore
-          .collection('users')
-          .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThan: query + 'z')
-          .limit(10)
-          .get();
+      final comment = {
+        'userId': userId,
+        'username': username,
+        'text': text,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
 
-      return snapshot.docs.map((doc) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          'name': data['name'],
-          'email': data['email'],
-          'profilePhotoUrl': data['profilePhotoUrl'],
-        };
-      }).toList();
+      await FirebaseService.firestore
+          .collection('posts')
+          .doc(postId)
+          .update({
+        'comments': FieldValue.arrayUnion([comment]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
-      throw Exception('Failed to search users: $e');
+      throw Exception('Failed to add comment: $e');
     }
+  }
+
+  // Extract hashtags from text
+  static List<String> _extractHashtags(String text) {
+    final regex = RegExp(r'#\w+');
+    final matches = regex.allMatches(text);
+    return matches.map((match) => match.group(0)!).toSet().toList();
   }
 }
