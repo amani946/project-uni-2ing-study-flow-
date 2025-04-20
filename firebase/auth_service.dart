@@ -1,216 +1,112 @@
-/*import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 
-class AuthService {
-  // Sign in with email and password
-  static Future<User?> signInWithEmailAndPassword(
-      String email, String password) async {
+class ChatService {
+  // Get or create a chat between two users
+  static Future<String> getOrCreateChat(String userId1, String userId2) async {
     try {
-      UserCredential credential = await FirebaseService.auth
-          .signInWithEmailAndPassword(email: email, password: password);
-      return credential.user;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthError(e);
-    }
-  }
+      // Check if chat already exists
+      QuerySnapshot snapshot = await FirebaseService.firestore
+          .collection('chats')
+          .where('participants', arrayContains: userId1)
+          .get();
 
-  // Register a student
-  static Future<User?> registerStudent({
-    required String email,
-    required String password,
-    required String name,
-    required String university,
-    required String major,
-    required String country,
-  }) async {
-    try {
-      // Create user
-      UserCredential credential = await FirebaseService.auth
-          .createUserWithEmailAndPassword(email: email, password: password);
+      for (var doc in snapshot.docs) {
+        List<dynamic> participants = doc['participants'];
+        if (participants.contains(userId2)) {
+          return doc.id;
+        }
+      }
 
-      // Add user data to Firestore
-      await FirebaseService.firestore
-          .collection('users')
-          .doc(credential.user?.uid)
-          .set({
-        'email': email,
-        'name': name,
-        'userType': 'student',
+      // Create new chat
+      DocumentReference chatRef = await FirebaseService.firestore
+          .collection('chats')
+          .add({
+        'participants': [userId1, userId2],
+        'lastMessage': '',
+        'lastMessageTime': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Add student-specific data
-      await FirebaseService.firestore
-          .collection('users')
-          .doc(credential.user?.uid)
-          .collection('student_data')
-          .doc('profile')
-          .set({
-        'university': university,
-        'major': major,
-        'country': country,
-      });
-
-      return credential.user;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthError(e);
-    }
-  }
-
-  // Register a company
-  static Future<User?> registerCompany({
-    required String email,
-    required String password,
-    required String companyName,
-    required String domainOfWork,
-    required String companyType,
-    required String commercialRegister,
-    required String country,
-  }) async {
-    try {
-      // Create user
-      UserCredential credential = await FirebaseService.auth
-          .createUserWithEmailAndPassword(email: email, password: password);
-
-      // Add user data to Firestore
-      await FirebaseService.firestore
-          .collection('users')
-          .doc(credential.user?.uid)
-          .set({
-        'email': email,
-        'name': companyName,
-        'userType': 'company',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Add company-specific data
-      await FirebaseService.firestore
-          .collection('users')
-          .doc(credential.user?.uid)
-          .collection('company_data')
-          .doc('profile')
-          .set({
-        'domainOfWork': domainOfWork,
-        'companyType': companyType,
-        'commercialRegister': commercialRegister,
-        'country': country,
-      });
-
-      return credential.user;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthError(e);
-    }
-  }
-
-  // Password reset
-  static Future<void> sendPasswordResetEmail(String email) async {
-    try {
-      await FirebaseService.auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthError(e);
-    }
-  }
-
-  // Sign out
-  static Future<void> signOut() async {
-    await FirebaseService.auth.signOut();
-  }
-
-  // Get current user
-  static User? getCurrentUser() {
-    return FirebaseService.auth.currentUser;
-  }
-
-  // Handle auth errors
-  static String _handleAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-email':
-        return 'The email address is invalid.';
-      case 'user-disabled':
-        return 'This user has been disabled.';
-      case 'user-not-found':
-        return 'No user found with this email.';
-      case 'wrong-password':
-        return 'Wrong password provided.';
-      case 'email-already-in-use':
-        return 'The email address is already in use.';
-      case 'operation-not-allowed':
-        return 'Email/password accounts are not enabled.';
-      case 'weak-password':
-        return 'The password is too weak.';
-      default:
-        return 'An unknown error occurred.';
-    }
-  }
-}*/import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_service.dart';
-
-class AuthService {
-  static Future<User?> login(String email, String password) async {
-    try {
-      return await FirebaseService.signInWithEmailAndPassword(email, password);
+      return chatRef.id;
     } catch (e) {
-      print("Login error: $e");
-      return null;
+      throw Exception('Failed to get or create chat: $e');
     }
   }
 
-  static Future<User?> registerStudent({
-    required String name,
-    required String email,
-    required String password,
-    required String country,
-    required String university,
-    required String major,
+  // Send a message
+  static Future<void> sendMessage({
+    required String chatId,
+    required String senderId,
+    required String senderName,
+    required String text,
   }) async {
-    return await FirebaseService.registerStudent(
-      name: name,
-      email: email,
-      password: password,
-      country: country,
-      university: university,
-      major: major,
-    );
+    try {
+      // Add message to subcollection
+      await FirebaseService.firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .add({
+        'senderId': senderId,
+        'senderName': senderName,
+        'text': text,
+        'timestamp': FieldValue.serverTimestamp(),
+        'read': false,
+      });
+
+      // Update chat's last message
+      await FirebaseService.firestore
+          .collection('chats')
+          .doc(chatId)
+          .update({
+        'lastMessage': text,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to send message: $e');
+    }
   }
 
-  static Future<User?> registerCompany({
-    required String companyName,
-    required String email,
-    required String password,
-    required String domain,
-    required String companyType,
-    required String commercialRegister,
-    required String country,
-  }) async {
-    return await FirebaseService.registerCompany(
-      companyName: companyName,
-      email: email,
-      password: password,
-      domain: domain,
-      companyType: companyType,
-      commercialRegister: commercialRegister,
-      country: country,
-    );
+  // Get chat messages
+  static Stream<QuerySnapshot> getChatMessages(String chatId) {
+    return FirebaseService.firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: false)
+        .snapshots();
   }
 
-  static Future<void> logout() async {
-    await FirebaseService.signOut();
+  // Get user chats
+  static Stream<QuerySnapshot> getUserChats(String userId) {
+    return FirebaseService.firestore
+        .collection('chats')
+        .where('participants', arrayContains: userId)
+        .orderBy('lastMessageTime', descending: true)
+        .snapshots();
   }
 
-  static Future<void> resetPassword(String email) async {
-    await FirebaseService.sendPasswordResetEmail(email);
-  }
+  // Mark messages as read
+  static Future<void> markMessagesAsRead(String chatId, String userId) async {
+    try {
+      QuerySnapshot messages = await FirebaseService.firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: userId)
+          .where('read', isEqualTo: false)
+          .get();
 
-  static User? getCurrentUser() {
-    return FirebaseService.auth.currentUser;
-  }
+      WriteBatch batch = FirebaseService.firestore.batch();
 
-  static Future<Map<String, dynamic>?> getCurrentUserData() async {
-    return await FirebaseService.getCurrentUserData();
-  }
+      for (var doc in messages.docs) {
+        batch.update(doc.reference, {'read': true});
+      }
 
-  static Stream<User?> get authStateChanges {
-    return FirebaseService.auth.authStateChanges();
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to mark messages as read: $e');
+    }
   }
 }
