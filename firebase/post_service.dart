@@ -48,7 +48,7 @@ class PostService {
   static Future<void> likePost(String postId, String userId) async {
     try {
       final postRef = FirebaseService.firestore.collection('posts').doc(postId);
-      
+
       await FirebaseService.firestore.runTransaction((transaction) async {
         final postDoc = await transaction.get(postRef);
         if (!postDoc.exists) {
@@ -97,9 +97,9 @@ class PostService {
           .collection('posts')
           .doc(postId)
           .update({
-            'comments': FieldValue.arrayUnion([comment]),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+        'comments': FieldValue.arrayUnion([comment]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
       throw Exception('Failed to add comment: $e');
     }
