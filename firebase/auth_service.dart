@@ -1,3 +1,4 @@
+/*import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_service.dart';
 
@@ -27,7 +28,7 @@ class AuthService {
       // Create user
       UserCredential credential = await FirebaseService.auth
           .createUserWithEmailAndPassword(email: email, password: password);
-      
+
       // Add user data to Firestore
       await FirebaseService.firestore
           .collection('users')
@@ -71,7 +72,7 @@ class AuthService {
       // Create user
       UserCredential credential = await FirebaseService.auth
           .createUserWithEmailAndPassword(email: email, password: password);
-      
+
       // Add user data to Firestore
       await FirebaseService.firestore
           .collection('users')
@@ -141,5 +142,75 @@ class AuthService {
       default:
         return 'An unknown error occurred.';
     }
+  }
+}*/import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_service.dart';
+
+class AuthService {
+  static Future<User?> login(String email, String password) async {
+    try {
+      return await FirebaseService.signInWithEmailAndPassword(email, password);
+    } catch (e) {
+      print("Login error: $e");
+      return null;
+    }
+  }
+
+  static Future<User?> registerStudent({
+    required String name,
+    required String email,
+    required String password,
+    required String country,
+    required String university,
+    required String major,
+  }) async {
+    return await FirebaseService.registerStudent(
+      name: name,
+      email: email,
+      password: password,
+      country: country,
+      university: university,
+      major: major,
+    );
+  }
+
+  static Future<User?> registerCompany({
+    required String companyName,
+    required String email,
+    required String password,
+    required String domain,
+    required String companyType,
+    required String commercialRegister,
+    required String country,
+  }) async {
+    return await FirebaseService.registerCompany(
+      companyName: companyName,
+      email: email,
+      password: password,
+      domain: domain,
+      companyType: companyType,
+      commercialRegister: commercialRegister,
+      country: country,
+    );
+  }
+
+  static Future<void> logout() async {
+    await FirebaseService.signOut();
+  }
+
+  static Future<void> resetPassword(String email) async {
+    await FirebaseService.sendPasswordResetEmail(email);
+  }
+
+  static User? getCurrentUser() {
+    return FirebaseService.auth.currentUser;
+  }
+
+  static Future<Map<String, dynamic>?> getCurrentUserData() async {
+    return await FirebaseService.getCurrentUserData();
+  }
+
+  static Stream<User?> get authStateChanges {
+    return FirebaseService.auth.authStateChanges();
   }
 }
