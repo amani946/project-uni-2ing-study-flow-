@@ -1,0 +1,1044 @@
+// main_app.dart
+import 'package:flutter/material.dart';
+import 'auth_screens.dart'; // Import the auth screens
+
+void main() {
+  runApp(StudyFlowApp());
+}
+
+class StudyFlowApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Study Flow',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: LoginPage(),
+      routes: {
+        '/login': (context) => LoginPage(),
+        '/signup': (context) => SignUpPage(),
+        '/student-signup': (context) => StudentSignUpPage(),
+        '/company-signup': (context) => CompanySignUpPage(),
+        '/forgot-password': (context) => ForgotPasswordPage(),
+        '/reset-password': (context) => ResetPasswordPage(),
+        '/home': (context) => StudyFlowHome(),
+      },
+    );
+  }
+}
+
+class StudyFlowHome extends StatefulWidget {
+  @override
+  _StudyFlowHomeState createState() => _StudyFlowHomeState();
+}
+
+class _StudyFlowHomeState extends State<StudyFlowHome> {
+  String selectedMenu = "Homepage";
+  bool isSidebarOpen = true;
+  List<String> toDoList = ["Task 1", "Task 2", "Task 3"];
+  List<bool> taskCompletionStatus = [false, false, false];
+  TextEditingController taskController = TextEditingController();
+  TextEditingController bioController = TextEditingController();
+  TextEditingController socialMediaController = TextEditingController();
+  String profilePhotoUrl = "";
+  TextEditingController postController = TextEditingController();
+  TextEditingController chatController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
+  List<Map<String, dynamic>> posts = [
+    {
+      "username": "user1",
+      "content": "This is a sample post.",
+      "likes": 10,
+      "comments": ["Great post!", "Nice!"],
+      "isLiked": false,
+      "isSaved": false,
+    },
+    {
+      "username": "user2",
+      "content": "Another post here.",
+      "likes": 5,
+      "comments": ["Awesome!", "Well done!"],
+      "isLiked": false,
+      "isSaved": false,
+    },
+  ];
+  List<Map<String, dynamic>> chatMessages = [
+    {
+      "sender": "Rema XXX",
+      "message": "hello",
+      "time": "7:33 AM",
+    },
+    {
+      "sender": "name XXX",
+      "message": "hi ,how are you ?",
+      "time": "7:33 AM",
+    },
+  ];
+  List<String> friends = ["Friend 1", "Friend 2", "Friend 3", "Friend 4"];
+  String selectedFriend = "";
+
+  // Internship Search Page Variables
+  TextEditingController majorController = TextEditingController();
+  TextEditingController interestsController = TextEditingController();
+  List<Map<String, dynamic>> internships = [
+    {
+      "title": "Software Engineering Intern",
+      "description": "Work on cutting-edge software projects.",
+      "requiredSkills": ["Java", "Python", "C++"],
+    },
+    {
+      "title": "Data Science Intern",
+      "description": "Analyze large datasets and build predictive models.",
+      "requiredSkills": ["Python", "R", "SQL"],
+    },
+    {
+      "title": "Marketing Intern",
+      "description": "Assist in creating marketing campaigns.",
+      "requiredSkills": ["Social Media", "SEO", "Content Writing"],
+    },
+    {
+      "title": "Graphic Design Intern",
+      "description": "Design visuals for digital and print media.",
+      "requiredSkills": ["Adobe Photoshop", "Illustrator", "UI/UX"],
+    },
+  ];
+  List<Map<String, dynamic>> filteredInternships = [];
+
+  // Scholarship Search Page Variables
+  TextEditingController scholarshipMajorController = TextEditingController();
+  TextEditingController scholarshipInterestsController = TextEditingController();
+  List<Map<String, dynamic>> scholarships = [
+    {
+      "title": "STEM Scholarship",
+      "description": "Scholarship for students pursuing STEM fields.",
+      "eligibility": ["Science", "Technology", "Engineering", "Mathematics"],
+    },
+    {
+      "title": "Arts Scholarship",
+      "description": "Scholarship for students in the arts.",
+      "eligibility": ["Fine Arts", "Performing Arts", "Design"],
+    },
+    {
+      "title": "Merit-Based Scholarship",
+      "description": "Scholarship for high-achieving students.",
+      "eligibility": ["High GPA", "Leadership", "Extracurricular Activities"],
+    },
+    {
+      "title": "Need-Based Scholarship",
+      "description": "Scholarship for students with financial need.",
+      "eligibility": ["Low Income", "Financial Hardship"],
+    },
+  ];
+  List<Map<String, dynamic>> filteredScholarships = [];
+
+  void toggleSidebar() {
+    setState(() {
+      isSidebarOpen = !isSidebarOpen;
+    });
+  }
+
+  void addTask() {
+    String task = taskController.text.trim();
+    if (task.isNotEmpty) {
+      setState(() {
+        toDoList.add(task);
+        taskCompletionStatus.add(false);
+      });
+      taskController.clear();
+    }
+  }
+
+  void removeTask(int index) {
+    setState(() {
+      toDoList.removeAt(index);
+      taskCompletionStatus.removeAt(index);
+    });
+  }
+
+  void toggleTaskCompletion(int index) {
+    setState(() {
+      taskCompletionStatus[index] = !taskCompletionStatus[index];
+    });
+  }
+
+  void updateProfilePhoto(String url) {
+    setState(() {
+      profilePhotoUrl = url;
+    });
+  }
+
+  void showProfileModificationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Modify Profile"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: bioController,
+                decoration: InputDecoration(
+                  hintText: "Update your bio...",
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: socialMediaController,
+                decoration: InputDecoration(
+                  hintText: "Add your social media link...",
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                onChanged: (value) => updateProfilePhoto(value),
+                decoration: InputDecoration(
+                  hintText: "Enter profile photo URL...",
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                bioController.text = bioController.text;
+                socialMediaController.text = socialMediaController.text;
+              });
+              Navigator.pop(context);
+            },
+            child: Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void addPost() {
+    String post = postController.text.trim();
+    if (post.isNotEmpty) {
+      setState(() {
+        posts.add({
+          "username": "You",
+          "content": post,
+          "likes": 0,
+          "comments": [],
+          "isLiked": false,
+          "isSaved": false,
+        });
+      });
+      postController.clear();
+    }
+  }
+
+  void toggleLike(int index) {
+    setState(() {
+      posts[index]["isLiked"] = !posts[index]["isLiked"];
+      if (posts[index]["isLiked"]) {
+        posts[index]["likes"] += 1;
+      } else {
+        posts[index]["likes"] -= 1;
+      }
+    });
+  }
+
+  void toggleSave(int index) {
+    setState(() {
+      posts[index]["isSaved"] = !posts[index]["isSaved"];
+    });
+  }
+
+  void addComment(int index, String comment) {
+    setState(() {
+      posts[index]["comments"].add(comment);
+    });
+  }
+
+  void sendMessage() {
+    String message = chatController.text.trim();
+    if (message.isNotEmpty) {
+      setState(() {
+        chatMessages.add({
+          "sender": "You",
+          "message": message,
+          "time": "${DateTime.now().hour}:${DateTime.now().minute}",
+        });
+      });
+      chatController.clear();
+    }
+  }
+
+  void selectFriend(String friend) {
+    setState(() {
+      selectedFriend = friend;
+    });
+  }
+
+  void createGroupChat() {
+    print("Create group chat");
+  }
+
+  void filterInternships() {
+    String major = majorController.text.trim().toLowerCase();
+    String interests = interestsController.text.trim().toLowerCase();
+
+    setState(() {
+      filteredInternships = internships.where((internship) {
+        bool matchesMajor = internship["title"].toLowerCase().contains(major);
+        bool matchesInterests = internship["requiredSkills"].any((skill) => skill.toLowerCase().contains(interests));
+        return matchesMajor || matchesInterests;
+      }).toList();
+    });
+  }
+
+  void filterScholarships() {
+    String major = scholarshipMajorController.text.trim().toLowerCase();
+    String interests = scholarshipInterestsController.text.trim().toLowerCase();
+
+    setState(() {
+      filteredScholarships = scholarships.where((scholarship) {
+        bool matchesMajor = scholarship["title"].toLowerCase().contains(major);
+        bool matchesInterests = scholarship["eligibility"].any((criteria) => criteria.toLowerCase().contains(interests));
+        return matchesMajor || matchesInterests;
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Main Content
+          AnimatedPositioned(
+            duration: Duration(milliseconds: 300),
+            left: isSidebarOpen ? MediaQuery.of(context).size.width * 0.3 : 0,
+            right: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Toggle Sidebar Button
+                  IconButton(
+                    icon: Icon(isSidebarOpen ? Icons.menu_open : Icons.menu),
+                    onPressed: toggleSidebar,
+                  ),
+
+                  if (selectedMenu == "Homepage") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Search Bar
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: searchController,
+                                decoration: InputDecoration(
+                                  hintText: "Search for accounts or themes...",
+                                  prefixIcon: Icon(Icons.search, color: Colors.purple),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Create Post
+                            Card(
+                              elevation: 3,
+                              margin: EdgeInsets.only(bottom: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    TextField(
+                                      controller: postController,
+                                      decoration: InputDecoration(
+                                        hintText: "What's on your mind?",
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      maxLines: 3,
+                                    ),
+                                    SizedBox(height: 10),
+                                    ElevatedButton(
+                                      onPressed: addPost,
+                                      child: Text("Post"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.purple,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // Posts Feed
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: posts.length,
+                              itemBuilder: (context, index) {
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          posts[index]["username"],
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(posts[index]["content"]),
+                                        SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                posts[index]["isLiked"]
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                color: posts[index]["isLiked"]
+                                                    ? Colors.red
+                                                    : Colors.grey,
+                                              ),
+                                              onPressed: () => toggleLike(index),
+                                            ),
+                                            Text("${posts[index]["likes"]} Likes"),
+                                            Spacer(),
+                                            IconButton(
+                                              icon: Icon(
+                                                posts[index]["isSaved"]
+                                                    ? Icons.bookmark
+                                                    : Icons.bookmark_border,
+                                                color: posts[index]["isSaved"]
+                                                    ? Colors.purple
+                                                    : Colors.grey,
+                                              ),
+                                              onPressed: () => toggleSave(index),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Comments:",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        ...posts[index]["comments"].map((comment) {
+                                          return ListTile(
+                                            title: Text(comment),
+                                          );
+                                        }).toList(),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            hintText: "Add a comment...",
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          onSubmitted: (comment) {
+                                            addComment(index, comment);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "User Account") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Center(
+                          child: Column(
+                            children: [
+                              // Profile Photo
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundColor: Colors.purple[200],
+                                backgroundImage: profilePhotoUrl.isNotEmpty
+                                    ? NetworkImage(profilePhotoUrl)
+                                    : null,
+                                child: profilePhotoUrl.isEmpty
+                                    ? Icon(Icons.person, size: 50, color: Colors.white)
+                                    : null,
+                              ),
+                              SizedBox(height: 10),
+
+                              // User Information
+                              Text(
+                                "user name",
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              Text("Major: Computer Science"),
+                              Text("University: Example University"),
+                              Text("Country: Algeria"),
+                              SizedBox(height: 10),
+
+                              // Bio
+                              Text(
+                                "Bio:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              Text(bioController.text.isEmpty ? "No bio yet." : bioController.text),
+                              SizedBox(height: 10),
+
+                              // Social Media Link
+                              Text(
+                                "Social Media Link:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              Text(socialMediaController.text.isEmpty
+                                  ? "No link added yet."
+                                  : socialMediaController.text),
+                              SizedBox(height: 20),
+
+                              // Historique Section
+                              Text(
+                                "Historique:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 10),
+                              Text("No history available yet."),
+                              SizedBox(height: 20),
+
+                              // To-Do List
+                              Text(
+                                "To Do List:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 10),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.purple[50],
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                    bottomLeft: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                ),
+                                padding: EdgeInsets.all(10),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  itemCount: toDoList.length,
+                                  itemBuilder: (context, index) {
+                                    return Card(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      elevation: 3,
+                                      margin: EdgeInsets.symmetric(vertical: 5),
+                                      child: ListTile(
+                                        title: Text(toDoList[index]),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                taskCompletionStatus[index]
+                                                    ? Icons.check_circle
+                                                    : Icons.radio_button_unchecked,
+                                                color: Colors.purple,
+                                              ),
+                                              onPressed: () => toggleTaskCompletion(index),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.delete, color: Colors.red),
+                                              onPressed: () => removeTask(index),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: taskController,
+                                      decoration: InputDecoration(
+                                        hintText: "Add a task...",
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.add, color: Colors.purple),
+                                    onPressed: addTask,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "Chat") ...[
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // Chat Header
+                          Container(
+                            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.purple[800],
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search, color: Colors.white),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    decoration: InputDecoration(
+                                      hintText: "Search",
+                                      hintStyle: TextStyle(color: Colors.white70),
+                                      border: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.group_add, color: Colors.white),
+                                  onPressed: createGroupChat,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Friends List
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.purple[50],
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(20),
+                                  topRight: Radius.circular(20),
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: friends.length,
+                                itemBuilder: (context, index) {
+                                  return ListTile(
+                                    title: Text(friends[index]),
+                                    onTap: () => selectFriend(friends[index]),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+
+                          // Chat Messages
+                          if (selectedFriend.isNotEmpty)
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.purple[50],
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                    bottomLeft: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                ),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: chatMessages.length,
+                                  itemBuilder: (context, index) {
+                                    return Container(
+                                      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                                      child: Column(
+                                        crossAxisAlignment: chatMessages[index]["sender"] == "You"
+                                            ? CrossAxisAlignment.end
+                                            : CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            chatMessages[index]["sender"],
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          SizedBox(height: 5),
+                                          Container(
+                                            padding: EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: chatMessages[index]["sender"] == "You"
+                                                  ? Colors.purple[100]
+                                                  : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              chatMessages[index]["message"],
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                          ),
+                                          SizedBox(height: 5),
+                                          Text(
+                                            chatMessages[index]["time"],
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+
+                          // Chat Input
+                          if (selectedFriend.isNotEmpty)
+                            Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border(top: BorderSide(color: Colors.grey)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: chatController,
+                                      decoration: InputDecoration(
+                                        hintText: "Type a message...",
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.send, color: Colors.purple),
+                                    onPressed: sendMessage,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "Internship Search") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Major Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: majorController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your major...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Interests Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: interestsController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your interests...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Filter Button
+                            ElevatedButton(
+                              onPressed: filterInternships,
+                              child: Text("Filter Internships"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+
+                            // Filtered Internships List
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: filteredInternships.length,
+                              itemBuilder: (context, index) {
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          filteredInternships[index]["title"],
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(filteredInternships[index]["description"]),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Required Skills:",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        ...filteredInternships[index]["requiredSkills"].map((skill) {
+                                          return ListTile(
+                                            title: Text(skill),
+                                          );
+                                        }).toList(),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "Scholarship Search") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Major Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: scholarshipMajorController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your major...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Interests Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: scholarshipInterestsController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your interests...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Filter Button
+                            ElevatedButton(
+                              onPressed: filterScholarships,
+                              child: Text("Filter Scholarships"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+
+                            // Filtered Scholarships List
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: filteredScholarships.length,
+                              itemBuilder: (context, index) {
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          filteredScholarships[index]["title"],
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(filteredScholarships[index]["description"]),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Eligibility Criteria:",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        ...filteredScholarships[index]["eligibility"].map((criteria) {
+                                          return ListTile(
+                                            title: Text(criteria),
+                                          );
+                                        }).toList(),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // Sliding Sidebar
+          AnimatedPositioned(
+            duration: Duration(milliseconds: 300),
+            left: isSidebarOpen ? 0 : -MediaQuery.of(context).size.width * 0.3,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.3,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/sidebar.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              padding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // App Logo
+                  Image.asset(
+                    'assets/logo.png',
+                    width: 100,
+                    height: 100,
+                  ),
+                  SizedBox(height: 20),
+                  buildSidebarItem("Homepage"),
+                  buildSidebarItem("Chat"),
+                  buildSidebarItem("Scholarship Search"),
+                  buildSidebarItem("Internship Search"),
+                  buildSidebarItem("User Account"),
+                ],
+              ),
+            ),
+          ),
+
+          // Floating Action Button for Profile Modification
+          if (selectedMenu == "User Account")
+            Positioned(
+              right: 20,
+              bottom: 20,
+              child: FloatingActionButton(
+                onPressed: showProfileModificationDialog,
+                child: Icon(Icons.edit),
+                backgroundColor: Colors.purple,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSidebarItem(String title) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedMenu = title;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selectedMenu == title ? Colors.purple[500] : Colors.transparent,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Text(
+            title,
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+      ),
+    );
+  }
+}
