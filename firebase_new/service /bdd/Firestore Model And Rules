@@ -1,0 +1,219 @@
+// =============================
+// Firestore Collections (JSON Structure with Types)
+// =============================
+
+// Collection: users
+{
+  "users": {
+    "user_001": {
+      "type": "string",              // 'student' or 'company'
+      "university": "string",        // for students only
+      "major": "string",             // for students only
+      "company_name": "string",      // for companies only
+      "domain": "string",            // for companies only
+      "company_type": "string",      // 'Private' or 'Government'
+      "registration_number": "string", // for companies only
+      "name": "string",
+      "email": "string",
+      "password": "string",
+      "country": "string",           // selected from dropdown
+      "profile_picture": "string",
+      "bio": "string",
+      "social_links": ["string"],     // array of strings (URLs)
+      "created_at": "timestamp"
+    }
+  }
+}
+
+// Collection: posts
+{
+  "posts": {
+    "post_001": {
+      "user_id": "string",
+      "content": "string",
+      "image": "string",
+      "created_at": "timestamp",
+      "comments": {
+        "comment_001": {
+          "user_id": "string",
+          "content": "string",
+          "created_at": "timestamp"
+        }
+      },
+      "likes": {
+        "like_001": {
+          "user_id": "string",
+          "created_at": "timestamp"
+        }
+      },
+      "saved": {
+        "saved_001": {
+          "user_id": "string",
+          "created_at": "timestamp"
+        }
+      },
+      "hashtags": {
+        "hashtag_001": {
+          "name": "string"
+        }
+      }
+    }
+  }
+}
+
+// Collection: friendships
+{
+  "friendships": {
+    "friendship_001": {
+      "sender_id": "string",
+      "receiver_id": "string",
+      "status": "string",             // 'pending', 'accepted', 'rejected'
+      "created_at": "timestamp"
+    }
+  }
+}
+
+// Collection: messages
+{
+  "messages": {
+    "message_001": {
+      "sender_id": "string",
+      "receiver_id": "string",
+      "content": "string",
+      "file": "string|null",
+      "created_at": "timestamp"
+    }
+  }
+}
+
+// Collection: groupChats
+{
+  "groupChats": {
+    "group_001": {
+      "group_name": "string",
+      "created_at": "timestamp"
+    }
+  }
+}
+
+// Collection: groupMembers
+{
+  "groupMembers": {
+    "group_001_user_001": {
+      "group_id": "string",
+      "user_id": "string"
+    }
+  }
+}
+
+// Collection: internships
+{
+  "internships": {
+    "internship_001": {
+      "company_id": "string",
+      "title": "string",
+      "description": "string",
+      "skills_required": ["string"],  // array of skills
+      "link": "string",
+      "created_at": "timestamp"
+    }
+  }
+}
+
+// Collection: scholarships
+{
+  "scholarships": {
+    "scholarship_001": {
+      "university": "string",
+      "title": "string",
+      "description": "string",
+      "skills_required": ["string"],
+      "link": "string",
+      "created_at": "timestamp"
+    }
+  }
+}
+
+// Collection: todos
+{
+  "todos": {
+    "todo_001": {
+      "user_id": "string",
+      "task": "string",
+      "status": "string",             // 'pending', 'completed', 'rejected'
+      "due_date": "timestamp"
+    }
+  }
+}
+
+
+// =============================
+// Firestore Security Rules
+// =============================
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read profiles, but only edit their own
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Posts can be read by all, edited by owner
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow create: if request.auth != null;
+    }
+
+    // Comments are under posts
+    match /posts/{postId}/comments/{commentId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+    }
+
+    // Likes are also subcollections
+    match /posts/{postId}/likes/{likeId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Friendships
+    match /friendships/{friendshipId} {
+      allow read, write: if request.auth != null &&
+        (request.auth.uid == resource.data.sender_id ||
+         request.auth.uid == resource.data.receiver_id);
+    }
+
+    // Messages
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null &&
+        (request.auth.uid == resource.data.sender_id ||
+         request.auth.uid == resource.data.receiver_id);
+    }
+
+    // Group chat and members
+    match /groupChats/{groupId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /groupMembers/{memberId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Internships and scholarships can be read by all
+    match /internships/{id} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == resource.data.company_id;
+    }
+
+    match /scholarships/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Todos
+    match /todos/{todoId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
+    }
+  }
+}
