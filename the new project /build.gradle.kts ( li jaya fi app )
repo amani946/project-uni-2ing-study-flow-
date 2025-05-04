@@ -1,0 +1,33 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services") // ✅ Required for Firebase
+}
+
+android {
+    namespace = "com.your.package.name"
+    compileSdk = 33
+
+    defaultConfig {
+        applicationId = "com.your.package.name"
+        minSdk = 21
+        targetSdk = 33
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+}
+
+dependencies {
+    implementation("com.google.firebase:firebase-analytics-ktx") // ✅ Example Firebase dependency
+    // Add other Firebase libraries as needed
+}
