@@ -1,0 +1,7 @@
+  flutter pub add firebase_auth  
+ flutter run -d chrome  
+    flutter clean       
+flutter pub get
+  flutter pub upgrade --major-versions 
+// rani derltlek ga3 les cmd li siyithom mais the most important
+//homa clean w talya mais ntiya dirihom ga3 
