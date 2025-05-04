@@ -1,0 +1,33 @@
+name: studyflow
+description: "A Study Flow application for students and companies."
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.3
+  cloud_firestore: ^4.17.5
+  firebase_storage: ^12.4.5
+  firebase_auth_web: ^5.14.2
+  firebase_storage_web: ^3.10.12
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+dependency_overrides:
+  firebase_storage: ^12.3.7
+  cloud_firestore: ^5.6.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
+    - assets/sidebar.png
+    - assets/Lunar_Purple.jpg
