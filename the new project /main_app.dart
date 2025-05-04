@@ -1,0 +1,1158 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
+import 'package:studyflow/firestore_service.dart';
+import 'auth_screens.dart';
+import 'firebase_service.dart';
+
+class StudyFlowHome extends StatefulWidget {
+  @override
+  _StudyFlowHomeState createState() => _StudyFlowHomeState();
+}
+
+class _StudyFlowHomeState extends State<StudyFlowHome> {
+  String selectedMenu = "Homepage";
+  bool isSidebarOpen = true;
+  List<String> toDoList = [];
+  List<bool> taskCompletionStatus = [];
+  TextEditingController taskController = TextEditingController();
+  TextEditingController bioController = TextEditingController();
+  TextEditingController socialMediaController = TextEditingController();
+  String profilePhotoUrl = "";
+  TextEditingController postController = TextEditingController();
+  TextEditingController chatController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
+
+  List<Map<String, dynamic>> posts = [];
+  List<Map<String, dynamic>> chatMessages = [];
+  List<String> friends = [];
+  String selectedFriend = "";
+
+  // Internship Search Page Variables
+  TextEditingController majorController = TextEditingController();
+  TextEditingController interestsController = TextEditingController();
+  List<Map<String, dynamic>> internships = [];
+  List<Map<String, dynamic>> filteredInternships = [];
+
+  // Scholarship Search Page Variables
+  TextEditingController scholarshipMajorController = TextEditingController();
+  TextEditingController scholarshipInterestsController = TextEditingController();
+  List<Map<String, dynamic>> scholarships = [];
+  List<Map<String, dynamic>> filteredScholarships = [];
+
+  User? currentUser;
+  Map<String, dynamic>? userData;
+
+  @override
+  void initState() {
+    super.initState();
+    currentUser = FirebaseAuth.instance.currentUser;
+    _loadUserData();
+    _setupStreams();
+  }
+
+  void _loadUserData() async {
+    if (currentUser != null) {
+      final userDoc = await FirebaseService().getUserData(currentUser!.uid);
+      if (userDoc.exists) {
+        setState(() {
+          userData = userDoc.data() as Map<String, dynamic>;
+          bioController.text = userData?['bio'] ?? '';
+          profilePhotoUrl = userData?['profile_picture'] ?? '';
+          if (userData?['social_links'] != null && userData!['social_links'].isNotEmpty) {
+            socialMediaController.text = userData!['social_links'][0];
+          }
+        });
+      }
+    }
+  }
+
+  void _setupStreams() {
+    // Posts stream
+    FirebaseService().getPostsStream().listen((QuerySnapshot snapshot) {
+      setState(() {
+        posts = snapshot.docs.map((doc) {
+          return {
+            'id': doc.id,
+            'user_id': doc['user_id'],
+            'username': 'Loading...',
+            'content': doc['content'],
+            'image': doc['image'],
+            'likes': doc['likes'] != null ? doc['likes'].length : 0,
+            'isLiked': doc['likes'] != null && currentUser != null
+                ? doc['likes'].containsKey(currentUser!.uid)
+                : false,
+            'isSaved': false,
+            'comments': doc['comments'] != null
+                ? doc['comments'].values.map((c) => c['content']).toList()
+                : [],
+            'hashtags': doc['hashtags'] != null
+                ? doc['hashtags'].values.map((h) => h['name']).toList()
+                : [],
+          };
+        }).toList();
+      });
+
+      // Fetch usernames for each post
+      for (var post in posts) {
+        FirebaseService().getUserData(post['user_id']).then((userDoc) {
+          if (userDoc.exists) {
+            setState(() {
+              post['username'] = userDoc['name'];
+            });
+          }
+        });
+      }
+    });
+
+    // Internships stream
+    FirebaseService().getInternshipsStream().listen((QuerySnapshot snapshot) {
+      setState(() {
+        internships = snapshot.docs.map((doc) {
+          return {
+            'id': doc.id,
+            'company_id': doc['company_id'],
+            'title': doc['title'],
+            'description': doc['description'],
+            'skills_required': doc['skills_required'],
+            'link': doc['link'],
+            'company_name': 'Loading...',
+          };
+        }).toList();
+      });
+
+      // Fetch company names for each internship
+      for (var internship in internships) {
+        FirebaseService().getUserData(internship['company_id']).then((companyDoc) {
+          if (companyDoc.exists) {
+            setState(() {
+              internship['company_name'] = companyDoc['company_name'];
+            });
+          }
+        });
+      }
+    });
+
+    // Scholarships stream
+    FirebaseService().getScholarshipsStream().listen((QuerySnapshot snapshot) {
+      setState(() {
+        scholarships = snapshot.docs.map((doc) {
+          return {
+            'id': doc.id,
+            'university': doc['university'],
+            'title': doc['title'],
+            'description': doc['description'],
+            'skills_required': doc['skills_required'],
+            'link': doc['link'],
+          };
+        }).toList();
+      });
+    });
+
+    // Todos stream
+    if (currentUser != null) {
+      FirebaseService().getUserTodosStream(currentUser!.uid).listen((QuerySnapshot snapshot) {
+        setState(() {
+          toDoList = snapshot.docs.map((doc) => doc['task'] as String).toList();
+          taskCompletionStatus = snapshot.docs.map((doc) => doc['status'] == 'completed').toList();
+        });
+      });
+    }
+  }
+
+  void toggleSidebar() {
+    setState(() {
+      isSidebarOpen = !isSidebarOpen;
+    });
+  }
+
+  Future<void> addTask() async {
+    String task = taskController.text.trim();
+    if (task.isNotEmpty && currentUser != null) {
+      await FirebaseService().addTodo(
+        userId: currentUser!.uid,
+        task: task,
+        status: 'pending',
+      );
+      taskController.clear();
+    }
+  }
+
+  Future<void> removeTask(int index) async {
+    if (currentUser != null) {
+      // In a real app, you would need to get the document ID of the todo to delete
+      // This is simplified for demonstration
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Todo deletion would be implemented here')),
+      );
+    }
+  }
+
+  Future<void> toggleTaskCompletion(int index) async {
+    if (currentUser != null && index < toDoList.length) {
+      // In a real app, you would update the specific todo document
+      // This is simplified for demonstration
+      setState(() {
+        taskCompletionStatus[index] = !taskCompletionStatus[index];
+      });
+    }
+  }
+
+  Future<void> updateProfile() async {
+    if (currentUser != null) {
+      await FirebaseService().updateUserProfile(
+        userId: currentUser!.uid,
+        bio: bioController.text,
+        socialLink: socialMediaController.text,
+        profilePicture: profilePhotoUrl,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profile updated successfully!')),
+      );
+    }
+  }
+
+  Future<void> addPost() async {
+    if (currentUser != null && postController.text.trim().isNotEmpty) {
+      // Extract hashtags from content
+      final hashtags = RegExp(r'#\w+')
+          .allMatches(postController.text)
+          .map((match) => match.group(0)!)
+          .toList();
+
+      await FirebaseService().createPost(
+        userId: currentUser!.uid,
+        content: postController.text.trim(),
+        hashtags: hashtags,
+      );
+      postController.clear();
+    }
+  }
+
+  Future<void> toggleLike(int index) async {
+    if (currentUser != null && index < posts.length) {
+      if (posts[index]['isLiked']) {
+        await FirebaseService().unlikePost(posts[index]['id'], currentUser!.uid);
+      } else {
+        await FirebaseService().likePost(posts[index]['id'], currentUser!.uid);
+      }
+    }
+  }
+
+  Future<void> addComment(int index, String comment) async {
+    if (currentUser != null && index < posts.length && comment.isNotEmpty) {
+      await FirebaseService().addComment(
+        posts[index]['id'],
+        currentUser!.uid,
+        comment,
+      );
+    }
+  }
+
+  Future<void> sendMessage() async {
+    if (currentUser != null && selectedFriend.isNotEmpty && chatController.text.trim().isNotEmpty) {
+      // In a real app, you would use the friend's user ID
+      // This is simplified for demonstration
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Message would be sent to $selectedFriend')),
+      );
+      chatController.clear();
+    }
+  }
+
+  void selectFriend(String friend) {
+    setState(() {
+      selectedFriend = friend;
+    });
+  }
+
+  void filterInternships() {
+    String major = majorController.text.trim().toLowerCase();
+    String interests = interestsController.text.trim().toLowerCase();
+
+    setState(() {
+      filteredInternships = internships.where((internship) {
+        bool matchesMajor = internship["title"].toLowerCase().contains(major);
+        bool matchesInterests = internship["skills_required"].any(
+                (skill) => skill.toLowerCase().contains(interests));
+        return matchesMajor || matchesInterests;
+      }).toList();
+    });
+  }
+
+  void filterScholarships() {
+    String major = scholarshipMajorController.text.trim().toLowerCase();
+    String interests = scholarshipInterestsController.text.trim().toLowerCase();
+
+    setState(() {
+      filteredScholarships = scholarships.where((scholarship) {
+        bool matchesMajor = scholarship["title"].toLowerCase().contains(major);
+        bool matchesInterests = scholarship["skills_required"].any(
+                (skill) => skill.toLowerCase().contains(interests));
+        return matchesMajor || matchesInterests;
+      }).toList();
+    });
+  }
+
+  void showProfileModificationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Modify Profile"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: bioController,
+                decoration: InputDecoration(
+                  hintText: "Update your bio...",
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: socialMediaController,
+                decoration: InputDecoration(
+                  hintText: "Add your social media link...",
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                onChanged: (value) => setState(() {
+                  profilePhotoUrl = value;
+                }),
+                decoration: InputDecoration(
+                  hintText: "Enter profile photo URL...",
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              updateProfile();
+            },
+            child: Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Main Content
+          AnimatedPositioned(
+            duration: Duration(milliseconds: 300),
+            left: isSidebarOpen ? MediaQuery.of(context).size.width * 0.3 : 0,
+            right: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Toggle Sidebar Button
+                  IconButton(
+                    icon: Icon(isSidebarOpen ? Icons.menu_open : Icons.menu),
+                    onPressed: toggleSidebar,
+                  ),
+
+                  if (selectedMenu == "Homepage") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Search Bar
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: searchController,
+                                decoration: InputDecoration(
+                                  hintText: "Search for accounts or themes...",
+                                  prefixIcon: Icon(Icons.search, color: Colors.purple),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Create Post
+                            Card(
+                              elevation: 3,
+                              margin: EdgeInsets.only(bottom: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    TextField(
+                                      controller: postController,
+                                      decoration: InputDecoration(
+                                        hintText: "What's on your mind?",
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      maxLines: 3,
+                                    ),
+                                    SizedBox(height: 10),
+                                    ElevatedButton(
+                                      onPressed: addPost,
+                                      child: Text("Post"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.purple,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // Posts Feed
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: posts.length,
+                              itemBuilder: (context, index) {
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          posts[index]["username"],
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(posts[index]["content"]),
+                                        if (posts[index]["image"] != null && posts[index]["image"].isNotEmpty)
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 10),
+                                            child: Image.network(posts[index]["image"]),
+                                          ),
+                                        SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: (posts[index]["hashtags"] as List).map<Widget>((hashtag) {
+                                            return Chip(
+                                              label: Text(hashtag),
+                                              backgroundColor: Colors.purple[100],
+                                            );
+                                          }).toList(),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                posts[index]["isLiked"]
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                color: posts[index]["isLiked"]
+                                                    ? Colors.red
+                                                    : Colors.grey,
+                                              ),
+                                              onPressed: () => toggleLike(index),
+                                            ),
+                                            Text("${posts[index]["likes"]} Likes"),
+                                            Spacer(),
+                                            IconButton(
+                                              icon: Icon(
+                                                posts[index]["isSaved"]
+                                                    ? Icons.bookmark
+                                                    : Icons.bookmark_border,
+                                                color: posts[index]["isSaved"]
+                                                    ? Colors.purple
+                                                    : Colors.grey,
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  posts[index]["isSaved"] = !posts[index]["isSaved"];
+                                                });
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Comments:",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        ...posts[index]["comments"].map<Widget>((comment) {
+                                          return ListTile(
+                                            title: Text(comment),
+                                          );
+                                        }).toList(),
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            hintText: "Add a comment...",
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          onSubmitted: (comment) {
+                                            addComment(index, comment);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "User Account") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Center(
+                          child: Column(
+                            children: [
+                              // Profile Photo
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundColor: Colors.purple[200],
+                                backgroundImage: profilePhotoUrl.isNotEmpty
+                                    ? NetworkImage(profilePhotoUrl)
+                                    : null,
+                                child: profilePhotoUrl.isEmpty
+                                    ? Icon(Icons.person, size: 50, color: Colors.white)
+                                    : null,
+                              ),
+                              SizedBox(height: 10),
+
+                              // User Information
+                              Text(
+                                userData?['name'] ?? 'User',
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              if (userData?['type'] == 'student') ...[
+                                Text("Major: ${userData?['major'] ?? ''}"),
+                                Text("University: ${userData?['university'] ?? ''}"),
+                              ] else if (userData?['type'] == 'company') ...[
+                                Text("Company: ${userData?['company_name'] ?? ''}"),
+                                Text("Domain: ${userData?['domain'] ?? ''}"),
+                              ],
+                              Text("Country: ${userData?['country'] ?? ''}"),
+                              SizedBox(height: 10),
+
+                              // Bio
+                              Text(
+                                "Bio:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              Text(bioController.text.isEmpty ? "No bio yet." : bioController.text),
+                              SizedBox(height: 10),
+
+                              // Social Media Link
+                              Text(
+                                "Social Media Link:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              Text(socialMediaController.text.isEmpty
+                                  ? "No link added yet."
+                                  : socialMediaController.text),
+                              SizedBox(height: 20),
+
+                              // To-Do List
+                              Text(
+                                "To Do List:",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 10),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.purple[50],
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                    bottomLeft: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                ),
+                                padding: EdgeInsets.all(10),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  itemCount: toDoList.length,
+                                  itemBuilder: (context, index) {
+                                    return Card(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      elevation: 3,
+                                      margin: EdgeInsets.symmetric(vertical: 5),
+                                      child: ListTile(
+                                        title: Text(toDoList[index]),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(
+                                                taskCompletionStatus[index]
+                                                    ? Icons.check_circle
+                                                    : Icons.radio_button_unchecked,
+                                                color: Colors.purple,
+                                              ),
+                                              onPressed: () => toggleTaskCompletion(index),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.delete, color: Colors.red),
+                                              onPressed: () => removeTask(index),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: taskController,
+                                      decoration: InputDecoration(
+                                        hintText: "Add a task...",
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.add, color: Colors.purple),
+                                    onPressed: addTask,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "Chat") ...[
+                    Expanded(
+                      child: Column(
+                        children: [
+                          // Chat Header
+                          Container(
+                            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.purple[800],
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search, color: Colors.white),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    decoration: InputDecoration(
+                                      hintText: "Search",
+                                      hintStyle: TextStyle(color: Colors.white70),
+                                      border: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Friends List
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.purple[50],
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(20),
+                                  topRight: Radius.circular(20),
+                                  bottomLeft: Radius.circular(10),
+                                  bottomRight: Radius.circular(10),
+                                ),
+                              ),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: friends.length,
+                                itemBuilder: (context, index) {
+                                  return ListTile(
+                                    title: Text(friends[index]),
+                                    onTap: () => selectFriend(friends[index]),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+
+                          // Chat Messages
+                          if (selectedFriend.isNotEmpty)
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.purple[50],
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20),
+                                    bottomLeft: Radius.circular(10),
+                                    bottomRight: Radius.circular(10),
+                                  ),
+                                ),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: chatMessages.length,
+                                  itemBuilder: (context, index) {
+                                    return Container(
+                                      margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                                      child: Column(
+                                        crossAxisAlignment: chatMessages[index]["sender"] == "You"
+                                            ? CrossAxisAlignment.end
+                                            : CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            chatMessages[index]["sender"],
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          SizedBox(height: 5),
+                                          Container(
+                                            padding: EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: chatMessages[index]["sender"] == "You"
+                                                  ? Colors.purple[100]
+                                                  : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              chatMessages[index]["message"],
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                          ),
+                                          SizedBox(height: 5),
+                                          Text(
+                                            chatMessages[index]["time"],
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+
+                          // Chat Input
+                          if (selectedFriend.isNotEmpty)
+                            Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border(top: BorderSide(color: Colors.grey)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: chatController,
+                                      decoration: InputDecoration(
+                                        hintText: "Type a message...",
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.send, color: Colors.purple),
+                                    onPressed: sendMessage,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "Internship Search") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Major Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: majorController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your major...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Interests Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: interestsController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your interests...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Filter Button
+                            ElevatedButton(
+                              onPressed: filterInternships,
+                              child: Text("Filter Internships"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+
+                            // Filtered Internships List
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: filteredInternships.isEmpty
+                                  ? internships.length
+                                  : filteredInternships.length,
+                              itemBuilder: (context, index) {
+                                final internship = filteredInternships.isEmpty
+                                    ? internships[index]
+                                    : filteredInternships[index];
+
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          internship["title"],
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 5),
+                                        Text(
+                                          "Company: ${internship["company_name"]}",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(internship["description"]),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Required Skills:",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: (internship["skills_required"] as List).map<Widget>((skill) {
+                                            return Chip(
+                                              label: Text(skill),
+                                              backgroundColor: Colors.purple[100],
+                                            );
+                                          }).toList(),
+                                        ),
+                                        SizedBox(height: 10),
+                                        if (internship["link"] != null && internship["link"].isNotEmpty)
+                                          TextButton(
+                                            onPressed: () {
+                                              // In a real app, you would launch the URL
+                                            },
+                                            child: Text("View Details"),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (selectedMenu == "Scholarship Search") ...[
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // Major Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: scholarshipMajorController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your major...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Interests Input
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: scholarshipInterestsController,
+                                decoration: InputDecoration(
+                                  hintText: "Enter your interests...",
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Filter Button
+                            ElevatedButton(
+                              onPressed: filterScholarships,
+                              child: Text("Filter Scholarships"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+
+                            // Filtered Scholarships List
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: filteredScholarships.isEmpty
+                                  ? scholarships.length
+                                  : filteredScholarships.length,
+                              itemBuilder: (context, index) {
+                                final scholarship = filteredScholarships.isEmpty
+                                    ? scholarships[index]
+                                    : filteredScholarships[index];
+
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          scholarship["title"],
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 5),
+                                        Text(
+                                          "University: ${scholarship["university"]}",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(scholarship["description"]),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Eligibility Criteria:",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Wrap(
+                                          spacing: 8,
+                                          children: (scholarship["skills_required"] as List).map<Widget>((criteria) {
+                                            return Chip(
+                                              label: Text(criteria),
+                                              backgroundColor: Colors.purple[100],
+                                            );
+                                          }).toList(),
+                                        ),
+                                        SizedBox(height: 10),
+                                        if (scholarship["link"] != null && scholarship["link"].isNotEmpty)
+                                          TextButton(
+                                            onPressed: () {
+                                              // In a real app, you would launch the URL
+                                            },
+                                            child: Text("View Details"),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // Sliding Sidebar
+          AnimatedPositioned(
+            duration: Duration(milliseconds: 300),
+            left: isSidebarOpen ? 0 : -MediaQuery.of(context).size.width * 0.3,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.3,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/sidebar.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              padding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // App Logo
+                  Image.asset(
+                    'assets/logo.png',
+                    width: 100,
+                    height: 100,
+                  ),
+                  SizedBox(height: 20),
+                  buildSidebarItem("Homepage"),
+                  buildSidebarItem("Chat"),
+                  if (userData?['type'] == 'student') ...[
+                    buildSidebarItem("Scholarship Search"),
+                    buildSidebarItem("Internship Search"),
+                  ],
+                  buildSidebarItem("User Account"),
+                  Spacer(),
+                  TextButton(
+                    onPressed: () async {
+                      await FirebaseService().signOut();
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                            (route) => false,
+                      );
+                    },
+                    child: Text(
+                      'Logout',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Floating Action Button for Profile Modification
+          if (selectedMenu == "User Account")
+            Positioned(
+              right: 20,
+              bottom: 20,
+              child: FloatingActionButton(
+                onPressed: showProfileModificationDialog,
+                child: Icon(Icons.edit),
+                backgroundColor: Colors.purple,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSidebarItem(String title) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedMenu = title;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selectedMenu == title ? Colors.purple[500] : Colors.transparent,
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Text(
+            title,
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+      ),
+    );
+  }
+}
